@@ -1,16 +1,5 @@
 package partition
 
-import (
-	"math/rand"
-	"time"
-)
-
-var randGen = rand.New(rand.Seed(time.Now().Unix()))
-
-func randomInRange(min, max int) int {
-	return rand.Intn(max-min) + min
-}
-
 func LomutoPartitionWithPivot(a []int, begin, pivot_index int) int {
 	pivot := a[pivot_index]
 
@@ -29,6 +18,6 @@ func LomutoPartitionWithPivot(a []int, begin, pivot_index int) int {
 }
 
 func LomutoPartitionWithRandomPivot(a []int, begin int) int {
-	pivot_index = randomInRange(begin, len(a))
+	pivot_index := randomInRange(begin, len(a))
 	return LomutoPartitionWithPivot(a, begin, pivot_index)
 }
