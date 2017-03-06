@@ -46,63 +46,70 @@ type Balancer struct {
 	NWorkers int
 	//NWorkerRequestQueueSize sets queue size for a worker, if not set then default value will be used.
 	NWorkerRequestQueueSize int
-	workers                 pool
-	done                    chan *worker
 }
 
-func (b *Balancer) initialize() {
-	if b.NWorkers == 0 {
-		b.NWorkers = NWorkersDefault
-	}
-
-	if b.NWorkerRequestQueueSize == 0 {
-		b.NWorkerRequestQueueSize = NWorkerRequestQueueSizeDefault
-	}
-
-	b.done = make(chan *worker)
+type handler struct {
+	workers pool
+	done    chan *worker
 }
 
-func (b *Balancer) dispatch(r Request) {
-	w, _ := heap.Pop(&b.workers).(*worker)
+func newHandler(b Balancer) *handler {
+	nWorkers := b.NWorkers
+	if nWorkers <= 0 {
+		nWorkers = NWorkersDefault
+	}
+
+	nWorkersQueueSize := b.NWorkerRequestQueueSize
+	if nWorkersQueueSize <= 0 {
+		nWorkersQueueSize = NWorkerRequestQueueSizeDefault
+	}
+
+	h := new(handler)
+	h.done = make(chan *worker)
+
+	for i := 0; i < nWorkers; i++ {
+		w := &worker{requests: make(chan Request, nWorkersQueueSize)}
+		heap.Push(&h.workers, w)
+		w.startWork(h.done)
+	}
+
+	return h
+}
+
+func (h *handler) dispatch(r Request) {
+	w, _ := heap.Pop(&h.workers).(*worker)
 	w.requests <- r
 	w.pending++
-	heap.Push(&b.workers, w)
+	heap.Push(&h.workers, w)
 }
 
-func (b *Balancer) completed(w *worker) {
-	heap.Remove(&b.workers, w.index)
+func (h *handler) completed(w *worker) {
+	heap.Remove(&h.workers, w.index)
 	w.pending--
-	heap.Push(&b.workers, w)
+	heap.Push(&h.workers, w)
 }
 
-func (b *Balancer) stop() {
-	for _, w := range b.workers {
+func (h *handler) stop() {
+	for _, w := range h.workers {
 		close(w.requests)
 	}
-	b.workers = nil
+	h.workers = nil
 }
 
 //Handle starts balacing the load coming from requests channel
-func (b *Balancer) Handle(requests <-chan Request) {
-	b.initialize()
-
-	for i := 0; i < b.NWorkers; i++ {
-		w := &worker{requests: make(chan Request, b.NWorkerRequestQueueSize)}
-		heap.Push(&b.workers, w)
-		w.startWork(b.done)
-	}
-
+func (b Balancer) Handle(requests <-chan Request) {
+	h := newHandler(b)
 	go func() {
-		defer b.stop()
+		defer h.stop()
 		for {
 			select {
 			case r, ok := <-requests:
 				if !ok {
 					return
 				}
-				b.dispatch(r)
-			case w := <-b.done:
-				b.completed(w)
+				h.dispatch(r)
+			case w := <-h.done:
+				h.completed(w)
 			}
 		}
 	}()
