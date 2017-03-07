@@ -1,6 +1,6 @@
 package partition
 
-import "github.com/harshadnawathe/go-lang-fun/dsa/rotation"
+import "github.com/harshadnawathe/funwithgo/dsa/rotation"
 
 type Predicate func(int) bool
 

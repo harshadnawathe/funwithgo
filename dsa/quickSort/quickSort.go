@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/harshadnawathe/go-lang-fun/dsa/partition"
+	"github.com/harshadnawathe/funwithgo/dsa/partition"
 )
 
 func QuickSort(a []int) {
